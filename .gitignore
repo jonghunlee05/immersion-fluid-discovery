@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+
+# Generated dataset/report outputs are reproducible from raw data and code.
+data/interim/*
+data/processed/*
+reports/data_audit/*
+
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!reports/data_audit/.gitkeep
+

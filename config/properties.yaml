@@ -1,0 +1,51 @@
+target_properties:
+  thermal_conductivity:
+    aliases:
+      - thermal conductivity
+      - coefficient of thermal conductivity
+    canonical_unit: W/(m*K)
+    temperature_dependent: true
+  dynamic_viscosity:
+    aliases:
+      - viscosity
+      - dynamic viscosity
+    canonical_unit: Pa*s
+    temperature_dependent: true
+  kinematic_viscosity:
+    aliases:
+      - kinematic viscosity
+    canonical_unit: m^2/s
+    temperature_dependent: true
+  density:
+    aliases:
+      - density
+      - mass density
+    canonical_unit: kg/m^3
+    temperature_dependent: true
+  isobaric_heat_capacity:
+    aliases:
+      - isobaric heat capacity
+      - heat capacity at constant pressure
+      - specific heat capacity
+    canonical_unit: J/(kg*K)
+    temperature_dependent: true
+  vapor_pressure:
+    aliases:
+      - vapor pressure
+      - vapour pressure
+    canonical_unit: Pa
+    temperature_dependent: true
+  boiling_temperature:
+    aliases:
+      - boiling temperature
+      - normal boiling temperature
+      - boiling point
+    canonical_unit: K
+    temperature_dependent: false
+  relative_permittivity:
+    aliases:
+      - relative permittivity
+      - dielectric constant
+    canonical_unit: dimensionless
+    temperature_dependent: true
+
