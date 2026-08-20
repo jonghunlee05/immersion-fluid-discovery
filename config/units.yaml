@@ -1,0 +1,15 @@
+canonical_units:
+  temperature: K
+  pressure: Pa
+  thermal_conductivity: W/(m*K)
+  dynamic_viscosity: Pa*s
+  kinematic_viscosity: m^2/s
+  density: kg/m^3
+  isobaric_heat_capacity: J/(kg*K)
+  vapor_pressure: Pa
+  boiling_temperature: K
+  flash_point: K
+  relative_permittivity: dimensionless
+  dielectric_strength: V/m
+  resistivity: ohm*m
+

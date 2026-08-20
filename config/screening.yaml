@@ -1,0 +1,10 @@
+boiling_point_min_K: null
+flash_point_min_K: null
+vapor_pressure_max_Pa_at_298_15K: null
+dynamic_viscosity_max_Pa_s_at_298_15K: null
+relative_permittivity_max: null
+dielectric_loss_max: null
+dielectric_strength_min_V_per_m: null
+volume_resistivity_min_ohm_m: null
+environmental_mode: undecided
+
