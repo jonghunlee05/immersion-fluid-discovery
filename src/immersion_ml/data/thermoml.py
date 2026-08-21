@@ -51,6 +51,10 @@ def parse_thermoml_file(path: str | Path) -> list[dict[str, Any]]:
     xml_path = Path(path)
     tree = ET.parse(xml_path)
     root = tree.getroot()
+    structured_rows = _parse_structured_thermoml(root, xml_path)
+    if structured_rows:
+        return structured_rows
+
     source = _source_metadata(root, xml_path)
     compounds = _compound_metadata(root)
     rows: list[dict[str, Any]] = []
@@ -96,6 +100,169 @@ def parse_thermoml_file(path: str | Path) -> list[dict[str, Any]]:
         rows.append(row.to_row())
 
     return rows
+
+
+def _parse_structured_thermoml(root: ET.Element, xml_path: Path) -> list[dict[str, Any]]:
+    """Parse ThermoML DataReport records using property/variable number links."""
+
+    source = _source_metadata(root, xml_path)
+    compounds = _structured_compounds(root)
+    rows: list[dict[str, Any]] = []
+
+    for data_node in _children_by_name(root, "PureOrMixtureData"):
+        components = _children_by_name(data_node, "Component")
+        if len(components) != 1:
+            continue
+
+        org_num = _descendant_text(components[0], "nOrgNum")
+        compound = compounds.get(org_num or "", {})
+        properties = _structured_properties(data_node)
+        variables = _structured_variables(data_node)
+        phase = _descendant_text(data_node, "ePhase")
+        data_number = _child_text(data_node, "nPureOrMixtureDataNumber")
+
+        for value_idx, values_node in enumerate(_children_by_name(data_node, "NumValues"), start=1):
+            variable_values = _structured_variable_values(values_node, variables)
+            for property_value_node in _children_by_name(values_node, "PropertyValue"):
+                property_number = _child_text(property_value_node, "nPropNumber")
+                property_definition = properties.get(property_number or "")
+                if not property_definition:
+                    continue
+
+                property_name = canonical_property_name(property_definition.get("label"))
+                if property_name is None:
+                    continue
+
+                measurement_value = _parse_float(_child_text(property_value_node, "nPropValue"))
+                uncertainty = _parse_float(
+                    _descendant_text(property_value_node, "nCombExpandUncertValue")
+                )
+                record_id = _record_id(
+                    xml_path,
+                    len(rows) + 1,
+                    {
+                        "property_label": property_definition.get("label"),
+                        "value": measurement_value,
+                        "temperature_K": variable_values.get("temperature_K"),
+                    },
+                )
+
+                row = RawMeasurement(
+                    record_id=record_id,
+                    molecule_id=compound.get("molecule_id"),
+                    molecule_name=compound.get("molecule_name"),
+                    CAS=compound.get("CAS"),
+                    InChI=compound.get("InChI"),
+                    InChIKey=compound.get("InChIKey"),
+                    SMILES=compound.get("SMILES"),
+                    property_name=property_name,
+                    property_value=measurement_value,
+                    property_unit=property_definition.get("unit"),
+                    temperature_K=variable_values.get("temperature_K"),
+                    pressure_Pa=variable_values.get("pressure_Pa"),
+                    phase=property_definition.get("phase") or phase,
+                    frequency_Hz=variable_values.get("frequency_Hz"),
+                    measurement_method=property_definition.get("method"),
+                    uncertainty=uncertainty,
+                    uncertainty_type="expanded" if uncertainty is not None else None,
+                    source_type="ThermoML",
+                    source_title=source.get("source_title"),
+                    source_DOI=source.get("source_DOI"),
+                    source_url=source.get("source_url"),
+                    publication_year=source.get("publication_year"),
+                    source_record_id=_join_nonempty(
+                        [
+                            f"PureOrMixtureData={data_number}" if data_number else None,
+                            f"NumValues={value_idx}",
+                            f"Property={property_number}" if property_number else None,
+                        ]
+                    ),
+                    quality_flag=_quality_flag_for_phase(property_definition.get("phase") or phase),
+                )
+                rows.append(row.to_row())
+
+    return rows
+
+
+def _structured_compounds(root: ET.Element) -> dict[str, dict[str, Any]]:
+    compounds: dict[str, dict[str, Any]] = {}
+    for node in _children_by_name(root, "Compound"):
+        org_num = _descendant_text(node, "nOrgNum")
+        if not org_num:
+            continue
+        common_names = _child_texts(node, "sCommonName")
+        compounds[org_num] = {
+            "molecule_id": org_num,
+            "molecule_name": common_names[0] if common_names else None,
+            "CAS": _structured_cas(node),
+            "InChI": _child_text(node, "sStandardInChI"),
+            "InChIKey": _child_text(node, "sStandardInChIKey"),
+            "SMILES": None,
+        }
+    return compounds
+
+
+def _structured_properties(data_node: ET.Element) -> dict[str, dict[str, str | None]]:
+    properties: dict[str, dict[str, str | None]] = {}
+    for node in _children_by_name(data_node, "Property"):
+        property_number = _child_text(node, "nPropNumber")
+        label = _descendant_text(node, "ePropName")
+        method = _descendant_text(node, "eMethodName")
+        phase = _descendant_text(node, "ePropPhase")
+        if property_number and label:
+            properties[property_number] = {
+                "label": label,
+                "unit": _unit_from_label(label),
+                "method": method,
+                "phase": phase,
+            }
+    return properties
+
+
+def _structured_variables(data_node: ET.Element) -> dict[str, dict[str, str | None]]:
+    variables: dict[str, dict[str, str | None]] = {}
+    for node in _children_by_name(data_node, "Variable"):
+        variable_number = _child_text(node, "nVarNumber")
+        label = (
+            _descendant_text(node, "eTemperature")
+            or _descendant_text(node, "ePressure")
+            or _descendant_text(node, "eFrequency")
+        )
+        if variable_number and label:
+            variables[variable_number] = {
+                "label": label,
+                "unit": _unit_from_label(label),
+            }
+    return variables
+
+
+def _structured_variable_values(
+    values_node: ET.Element, variables: dict[str, dict[str, str | None]]
+) -> dict[str, float | None]:
+    values: dict[str, float | None] = {
+        "temperature_K": None,
+        "pressure_Pa": None,
+        "frequency_Hz": None,
+    }
+    for node in _children_by_name(values_node, "VariableValue"):
+        variable_number = _child_text(node, "nVarNumber")
+        variable_definition = variables.get(variable_number or "")
+        raw_value = _parse_float(_child_text(node, "nVarValue"))
+        if not variable_definition or raw_value is None:
+            continue
+
+        label = (variable_definition.get("label") or "").lower()
+        unit = variable_definition.get("unit")
+        if "temperature" in label:
+            values["temperature_K"] = _temperature_to_kelvin(raw_value, unit)
+        elif "pressure" in label:
+            try:
+                values["pressure_Pa"] = normalize_pressure(raw_value, unit or "Pa")
+            except UnitConversionError:
+                values["pressure_Pa"] = None
+        elif "frequency" in label:
+            values["frequency_Hz"] = _frequency_to_hz(raw_value, unit)
+    return values
 
 
 def parse_thermoml_directory(path: str | Path) -> list[dict[str, Any]]:
@@ -255,6 +422,57 @@ def _element_text_blob(node: ET.Element) -> str:
 
 def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
+
+
+def _children_by_name(node: ET.Element, name: str) -> list[ET.Element]:
+    return [child for child in node if _local_name(child.tag) == name]
+
+
+def _child_text(node: ET.Element, name: str) -> str | None:
+    for child in node:
+        if _local_name(child.tag) == name and child.text and child.text.strip():
+            return _clean_text(child.text)
+    return None
+
+
+def _child_texts(node: ET.Element, name: str) -> list[str]:
+    return [
+        _clean_text(child.text)
+        for child in node
+        if _local_name(child.tag) == name and child.text and child.text.strip()
+    ]
+
+
+def _descendant_text(node: ET.Element, name: str) -> str | None:
+    for child in node.iter():
+        if _local_name(child.tag) == name and child.text and child.text.strip():
+            return _clean_text(child.text)
+    return None
+
+
+def _unit_from_label(label: str | None) -> str | None:
+    if not label or "," not in label:
+        return None
+    return _clean_text(label.rsplit(",", 1)[-1])
+
+
+def _structured_cas(node: ET.Element) -> str | None:
+    for reg_num in node.iter():
+        if _local_name(reg_num.tag) != "RegNum":
+            continue
+        cas_blob = "-".join(
+            value
+            for key in ("nCASNumBeg", "nCASNumMid", "nCASNumEnd")
+            if (value := _child_text(reg_num, key))
+        )
+        if cas_blob.count("-") == 2:
+            return cas_blob
+    return None
+
+
+def _join_nonempty(values: Sequence[str | None], separator: str = ";") -> str | None:
+    present = [value for value in values if value]
+    return separator.join(present) if present else None
 
 
 def _clean_text(value: str) -> str:

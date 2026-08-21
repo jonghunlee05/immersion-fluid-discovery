@@ -60,6 +60,22 @@ class ThermoMLTests(unittest.TestCase):
             write_raw_measurements_csv(rows, output_csv)
             self.assertTrue(output_csv.read_text(encoding="utf-8").startswith("record_id,"))
 
+    def test_parse_real_thermoml_property_variable_structure(self):
+        xml_path = Path("data/raw/thermoml/10.1021_acs.jced.5b00270.xml")
+        if not xml_path.exists():
+            self.skipTest("Real ThermoML sample file is not present.")
+
+        rows = parse_thermoml_file(xml_path)
+
+        self.assertEqual(len(rows), 94)
+        self.assertEqual({row["property_name"] for row in rows}, {"dynamic_viscosity"})
+        self.assertEqual({row["molecule_name"] for row in rows}, {"cyclohexane", "decane"})
+        self.assertEqual({row["phase"] for row in rows}, {"Liquid"})
+        self.assertEqual({row["property_unit"] for row in rows}, {"Pa*s"})
+        self.assertTrue(all(row["temperature_K"] is not None for row in rows))
+        self.assertTrue(all(row["pressure_Pa"] is not None for row in rows))
+        self.assertTrue(all(row["source_DOI"] == "10.1021/acs.jced.5b00270" for row in rows))
+
 
 if __name__ == "__main__":
     unittest.main()
