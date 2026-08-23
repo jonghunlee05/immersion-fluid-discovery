@@ -3,8 +3,10 @@ from collections import Counter
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from immersion_ml.data.audit import duplicate_report
 from immersion_ml.data.thermoml import (
     canonical_property_name,
+    parse_thermoml_directory_with_audit,
     parse_thermoml_file,
     parse_thermoml_file_with_audit,
     write_raw_measurements_csv,
@@ -143,6 +145,37 @@ class ThermoMLTests(unittest.TestCase):
                     Counter(row["reason"] for row in rejections),
                     expected_rejections[filename],
                 )
+
+    def test_scaled_ifd003_corpus_coverage(self):
+        rows, rejections = parse_thermoml_directory_with_audit("data/raw/thermoml")
+
+        self.assertEqual(
+            Counter(row["property_name"] for row in rows),
+            {
+                "boiling_temperature": 20,
+                "density": 200,
+                "dynamic_viscosity": 426,
+                "isobaric_heat_capacity": 197,
+                "relative_permittivity": 145,
+                "thermal_conductivity": 512,
+                "vapor_pressure": 74,
+            },
+        )
+        self.assertTrue(all(row["quality_flag"] is None for row in rows))
+        self.assertTrue(all(row["source_DOI"] for row in rows))
+        self.assertEqual(
+            Counter(row["reason"] for row in rejections),
+            {
+                "mixture_or_multicomponent_section": 20,
+                "non_liquid_or_ambiguous_phase": 571,
+            },
+        )
+        duplicates = duplicate_report(rows)
+        self.assertEqual(len(duplicates), 22)
+        self.assertEqual(
+            Counter(row["duplicate_scope"] for row in duplicates),
+            {"within_source": 22},
+        )
 
 
 if __name__ == "__main__":

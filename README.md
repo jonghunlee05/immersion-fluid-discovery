@@ -10,8 +10,23 @@ rules.
 ## Current workflow
 
 IFD-003 expands the real ThermoML validation set across density, dynamic
-viscosity, isobaric heat capacity, and thermal conductivity. Build the
-pure-liquid interim dataset and audit reports with:
+viscosity, isobaric heat capacity, thermal conductivity, vapor pressure,
+boiling temperature, and relative permittivity.
+
+Verify the immutable raw sources against the version-controlled registry:
+
+```bash
+PYTHONPATH=src python3 -m immersion_ml.data.download
+```
+
+To restore registered files that are missing locally, use the explicit download
+option. Existing raw files are never overwritten:
+
+```bash
+PYTHONPATH=src python3 -m immersion_ml.data.download --download-missing
+```
+
+Build the pure-liquid interim dataset and audit reports with:
 
 ```bash
 PYTHONPATH=src python3 -m immersion_ml.data.build_dataset
@@ -23,6 +38,7 @@ The command writes reproducible generated outputs:
 data/interim/thermoml_raw_measurements.csv
 reports/data_audit/coverage_report.csv
 reports/data_audit/overlap_report.csv
+reports/data_audit/duplicate_report.csv
 reports/data_audit/rejection_report.csv
 ```
 

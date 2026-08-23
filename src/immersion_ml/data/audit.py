@@ -29,6 +29,20 @@ COVERAGE_COLUMNS = [
 
 OVERLAP_COLUMNS = ["property_set", "property_count", "unique_molecule_count"]
 
+DUPLICATE_COLUMNS = [
+    "molecule_key",
+    "property_name",
+    "property_value",
+    "property_unit",
+    "temperature_K",
+    "pressure_Pa",
+    "phase",
+    "duplicate_count",
+    "duplicate_scope",
+    "source_DOIs",
+    "source_record_ids",
+]
+
 
 def load_measurements_csv(path: str | Path) -> list[dict[str, Any]]:
     with Path(path).open(newline="", encoding="utf-8") as handle:
@@ -121,6 +135,59 @@ def overlap_report(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return report
 
 
+def duplicate_report(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flag exact repeated conditions without dropping or averaging raw rows."""
+
+    grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        molecule_key = _molecule_key(row)
+        if not molecule_key or not row.get("property_name"):
+            continue
+        signature = (
+            molecule_key,
+            _signature_value(row.get("property_name")),
+            _signature_value(row.get("property_value")),
+            _signature_value(row.get("property_unit")),
+            _signature_value(row.get("temperature_K")),
+            _signature_value(row.get("pressure_Pa")),
+            _signature_value(row.get("phase")),
+        )
+        grouped[signature].append(row)
+
+    report: list[dict[str, Any]] = []
+    for signature, repeated_rows in sorted(grouped.items()):
+        if len(repeated_rows) < 2:
+            continue
+        source_dois = sorted(
+            {str(row.get("source_DOI")) for row in repeated_rows if row.get("source_DOI")}
+        )
+        source_record_ids = sorted(
+            {
+                str(row.get("source_record_id"))
+                for row in repeated_rows
+                if row.get("source_record_id")
+            }
+        )
+        report.append(
+            {
+                "molecule_key": signature[0],
+                "property_name": signature[1],
+                "property_value": signature[2],
+                "property_unit": signature[3],
+                "temperature_K": signature[4],
+                "pressure_Pa": signature[5],
+                "phase": signature[6],
+                "duplicate_count": len(repeated_rows),
+                "duplicate_scope": (
+                    "cross_source" if len(source_dois) > 1 else "within_source"
+                ),
+                "source_DOIs": "|".join(source_dois),
+                "source_record_ids": "|".join(source_record_ids),
+            }
+        )
+    return report
+
+
 def write_report_csv(rows: Sequence[dict[str, Any]], path: str | Path) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,6 +195,8 @@ def write_report_csv(rows: Sequence[dict[str, Any]], path: str | Path) -> None:
         fieldnames = COVERAGE_COLUMNS
     elif "overlap" in output_path.name:
         fieldnames = OVERLAP_COLUMNS
+    elif "duplicate" in output_path.name:
+        fieldnames = DUPLICATE_COLUMNS
     else:
         fieldnames = _fieldnames(rows)
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -160,6 +229,10 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _signature_value(value: Any) -> str:
+    return "" if value in (None, "") else str(value)
 
 
 def _missing_count(rows: Sequence[dict[str, Any]], key: str) -> int:

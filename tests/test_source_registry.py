@@ -1,7 +1,9 @@
 import csv
-import hashlib
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from immersion_ml.data.download import sha256_file, verify_registered_sources
 
 
 class SourceRegistryTests(unittest.TestCase):
@@ -15,10 +17,35 @@ class SourceRegistryTests(unittest.TestCase):
             with self.subTest(filename=source["filename"]):
                 raw_path = Path("data/raw/thermoml") / source["filename"]
                 self.assertTrue(raw_path.is_file())
-                digest = hashlib.sha256(raw_path.read_bytes()).hexdigest()
-                self.assertEqual(digest, source["sha256"])
+                self.assertEqual(sha256_file(raw_path), source["sha256"])
                 self.assertTrue(source["DOI"])
                 self.assertTrue(source["source_url"].startswith("https://trc.nist.gov/"))
+
+        self.assertEqual(
+            verify_registered_sources(sources, Path("data/raw/thermoml")), []
+        )
+
+    def test_verification_reports_missing_and_changed_files(self):
+        with TemporaryDirectory() as temp_dir:
+            raw_dir = Path(temp_dir)
+            source_path = raw_dir / "source.xml"
+            source_path.write_text("original", encoding="utf-8")
+            source = {
+                "filename": source_path.name,
+                "sha256": sha256_file(source_path),
+            }
+
+            self.assertEqual(verify_registered_sources([source], raw_dir), [])
+            source_path.write_text("changed", encoding="utf-8")
+            self.assertEqual(
+                verify_registered_sources([source], raw_dir),
+                [f"checksum_mismatch: {source_path}"],
+            )
+            source_path.unlink()
+            self.assertEqual(
+                verify_registered_sources([source], raw_dir),
+                [f"missing: {source_path}"],
+            )
 
 
 if __name__ == "__main__":

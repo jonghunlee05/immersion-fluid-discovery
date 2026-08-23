@@ -33,6 +33,7 @@ target_properties:
     aliases:
       - vapor pressure
       - vapour pressure
+      - vapor or sublimation pressure
     canonical_unit: Pa
     temperature_dependent: true
   boiling_temperature:
@@ -48,4 +49,3 @@ target_properties:
       - dielectric constant
     canonical_unit: dimensionless
     temperature_dependent: true
-

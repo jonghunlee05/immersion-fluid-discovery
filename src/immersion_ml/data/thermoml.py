@@ -32,7 +32,11 @@ TARGET_PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
         "heat capacity at constant pressure",
         "specific heat capacity",
     ),
-    "vapor_pressure": ("vapor pressure", "vapour pressure"),
+    "vapor_pressure": (
+        "vapor pressure",
+        "vapour pressure",
+        "vapor or sublimation pressure",
+    ),
     "boiling_temperature": (
         "boiling temperature",
         "normal boiling temperature",

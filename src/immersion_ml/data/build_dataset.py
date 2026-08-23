@@ -5,7 +5,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from immersion_ml.data.audit import coverage_report, overlap_report, write_report_csv
+from immersion_ml.data.audit import (
+    coverage_report,
+    duplicate_report,
+    overlap_report,
+    write_report_csv,
+)
 from immersion_ml.data.thermoml import (
     parse_thermoml_directory_with_audit,
     write_raw_measurements_csv,
@@ -41,6 +46,7 @@ def main() -> None:
     write_raw_measurements_csv(rows, args.interim_csv)
     write_report_csv(coverage_report(rows), args.report_dir / "coverage_report.csv")
     write_report_csv(overlap_report(rows), args.report_dir / "overlap_report.csv")
+    write_report_csv(duplicate_report(rows), args.report_dir / "duplicate_report.csv")
     write_rejections_csv(rejections, args.report_dir / "rejection_report.csv")
 
 
