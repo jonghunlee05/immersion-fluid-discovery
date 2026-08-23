@@ -9,4 +9,4 @@ reports/data_audit/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !reports/data_audit/.gitkeep
-
+!reports/data_audit/*.md
