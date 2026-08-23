@@ -2,51 +2,54 @@
 
 ## Sources
 
-IFD-003 now uses eighteen unmodified XML files downloaded from the official NIST
+IFD-003 now uses twenty-six unmodified XML files downloaded from the official NIST
 ThermoML archive. Their URLs and SHA-256 hashes are recorded in
 `references/thermoml_source_registry.csv`. The first increment established the
 multi-property pipeline; subsequent increments scaled source and property
-coverage on the same ticket.
+coverage on the same ticket. The latest eight-source batch was manually reviewed
+from the generated discovery queue before admission. Selection favored direct
+experimental measurements, additional molecules, and core-property overlap.
 
 ## Accepted pure-liquid measurements
 
 | Property | Measurements | Unique molecules | Temperature range (K) |
 | --- | ---: | ---: | ---: |
-| boiling temperature | 20 | 10 | Not applicable as a measurement condition |
-| density | 376 | 22 | 233.0655–363.1779 |
-| dynamic viscosity | 731 | 8 | 278.15–598.5 |
-| isobaric heat capacity | 235 | 10 | 253.5–355.09 |
-| relative permittivity | 201 | 9 | 278.15–393.0 |
-| thermal conductivity | 965 | 20 | 245.46–577.25 |
-| vapor pressure | 159 | 6 | 233.0655–453.15 |
+| boiling temperature | 32 | 22 | Not applicable as a measurement condition |
+| density | 619 | 30 | 233.0655–363.1779 |
+| dynamic viscosity | 965 | 15 | 278.15–598.5 |
+| isobaric heat capacity | 487 | 16 | 253.5–483.15 |
+| relative permittivity | 255 | 17 | 278.15–393.0 |
+| thermal conductivity | 1,071 | 27 | 245.46–577.25 |
+| vapor pressure | 396 | 16 | 233.0655–453.15 |
 
-The combined interim dataset contains 2,687 measurements. All accepted records
+The combined interim dataset contains 3,825 measurements. All accepted records
 have a liquid phase and source DOI.
 
 ## Rejections
 
 - 572 gas, supercritical, or otherwise non-liquid measurements are excluded
   from the pure-liquid interim dataset.
-- 31 multicomponent ThermoML sections are excluded. Their `record_count` values
+- 68 multicomponent ThermoML sections are excluded. Their `record_count` values
   preserve how many property values each rejected section contains.
-- 356 unsupported-property records are retained in the rejection audit rather
+- 601 unsupported-property records are retained in the rejection audit rather
   than entering target-property tables.
 - Rejections retain their source file, DOI, ThermoML record reference, reason,
   property label where available, and phase where available.
 
 ## Overlap result
 
-- Density and dynamic viscosity overlap for two molecules.
-- Density and isobaric heat capacity overlap for three molecules.
-- Dynamic viscosity and isobaric heat capacity overlap for one molecule.
-- Density and relative permittivity overlap for eight molecules.
+- Density and dynamic viscosity overlap for eight molecules.
+- Density and isobaric heat capacity overlap for seven molecules.
+- Dynamic viscosity and isobaric heat capacity overlap for five molecules.
+- Density and relative permittivity overlap for nine molecules.
 - Density and vapor pressure overlap for three molecules.
 - Isobaric heat capacity and vapor pressure overlap for three molecules.
-- No molecule currently has all four core properties.
+- Hexane is the first molecule with all four core properties: thermal
+  conductivity, dynamic viscosity, density, and isobaric heat capacity.
 
 ## Duplicate audit
 
-The exact-condition audit flags 55 repeated groups within individual source
+The exact-condition audit flags 56 repeated groups within individual source
 files. It finds zero duplicate groups spanning different DOI sources. These rows
 remain in the raw-measurement table as required; the report provides their
 source-record identifiers for later scientific review.

@@ -17,6 +17,9 @@ experimental measurements.
   never overwrites raw files, and verifies every checksum.
 - Discover pure-property candidates through the official ThermoML API and mark
   sources already present in the registry without automatically admitting data.
+- Manually review discovery candidates for experimental method, relevant
+  compounds, useful conditions, and complementary property overlap before
+  registering their immutable XML.
 - Audit other authoritative databases and define source-specific rules before
   combining their records with experimental ThermoML measurements.
 - Preserve the IFD-002 dynamic-viscosity source and behavior.
@@ -54,7 +57,7 @@ immutable raw XML files and version-controlled code.
 ## Acceptance Criteria
 
 - All seven current ThermoML ingestion targets are parsed from real sources.
-- At least eighteen independently registered ThermoML files contribute to the
+- At least twenty-six independently registered ThermoML files contribute to the
   validation corpus.
 - Raw XML files are stored unchanged and have registered SHA-256 hashes.
 - Missing registered files can be restored reproducibly without overwriting
@@ -66,6 +69,8 @@ immutable raw XML files and version-controlled code.
 - Mixture sections and non-liquid measurements are excluded with explicit audit
   reasons.
 - Coverage and overlap reports are reproducible.
+- At least one molecule has measurements for all four core properties: thermal
+  conductivity, dynamic viscosity, density, and isobaric heat capacity.
 - Exact-condition duplicates are reported; none are silently removed or
   averaged.
 - The existing IFD-002 viscosity result remains unchanged.
