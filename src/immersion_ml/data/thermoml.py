@@ -32,7 +32,11 @@ TARGET_PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
         "heat capacity at constant pressure",
         "specific heat capacity",
     ),
-    "vapor_pressure": ("vapor pressure", "vapour pressure"),
+    "vapor_pressure": (
+        "vapor pressure",
+        "vapour pressure",
+        "vapor or sublimation pressure",
+    ),
     "boiling_temperature": (
         "boiling temperature",
         "normal boiling temperature",
@@ -43,6 +47,17 @@ TARGET_PROPERTY_ALIASES: dict[str, tuple[str, ...]] = {
 
 
 LIQUID_TOKENS = ("liquid", "liq")
+
+REJECTION_COLUMNS: tuple[str, ...] = (
+    "source_file",
+    "source_DOI",
+    "source_record_id",
+    "reason",
+    "property_label",
+    "phase",
+    "record_count",
+    "notes",
+)
 
 
 def parse_thermoml_file(path: str | Path) -> list[dict[str, Any]]:
@@ -102,7 +117,45 @@ def parse_thermoml_file(path: str | Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _parse_structured_thermoml(root: ET.Element, xml_path: Path) -> list[dict[str, Any]]:
+def parse_thermoml_file_with_audit(
+    path: str | Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse one file and separate accepted pure-liquid rows from rejections."""
+
+    xml_path = Path(path)
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    rejections: list[dict[str, Any]] = []
+    rows = _parse_structured_thermoml(root, xml_path, rejections)
+    if not rows and not rejections:
+        rows = parse_thermoml_file(xml_path)
+
+    accepted: list[dict[str, Any]] = []
+    source = _source_metadata(root, xml_path)
+    for row in rows:
+        quality_flag = row.get("quality_flag")
+        if quality_flag is None:
+            accepted.append(row)
+            continue
+        rejections.append(
+            _rejection_row(
+                xml_path,
+                source,
+                reason=str(quality_flag),
+                source_record_id=row.get("source_record_id"),
+                property_label=row.get("property_name"),
+                phase=row.get("phase"),
+                notes="Parsed target measurement excluded from the pure-liquid dataset.",
+            )
+        )
+    return accepted, rejections
+
+
+def _parse_structured_thermoml(
+    root: ET.Element,
+    xml_path: Path,
+    rejections: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     """Parse ThermoML DataReport records using property/variable number links."""
 
     source = _source_metadata(root, xml_path)
@@ -110,8 +163,24 @@ def _parse_structured_thermoml(root: ET.Element, xml_path: Path) -> list[dict[st
     rows: list[dict[str, Any]] = []
 
     for data_node in _children_by_name(root, "PureOrMixtureData"):
+        if not any(_local_name(child.tag) == "nPropNumber" for child in data_node.iter()):
+            continue
         components = _children_by_name(data_node, "Component")
         if len(components) != 1:
+            if rejections is not None:
+                data_number = _child_text(data_node, "nPureOrMixtureDataNumber")
+                rejections.append(
+                    _rejection_row(
+                        xml_path,
+                        source,
+                        reason="mixture_or_multicomponent_section",
+                        source_record_id=(
+                            f"PureOrMixtureData={data_number}" if data_number else None
+                        ),
+                        record_count=_property_value_count(data_node),
+                        notes=f"Component count: {len(components)}.",
+                    )
+                )
             continue
 
         org_num = _descendant_text(components[0], "nOrgNum")
@@ -131,9 +200,53 @@ def _parse_structured_thermoml(root: ET.Element, xml_path: Path) -> list[dict[st
 
                 property_name = canonical_property_name(property_definition.get("label"))
                 if property_name is None:
+                    if rejections is not None:
+                        rejections.append(
+                            _rejection_row(
+                                xml_path,
+                                source,
+                                reason="unsupported_property",
+                                source_record_id=_join_nonempty(
+                                    [
+                                        f"PureOrMixtureData={data_number}"
+                                        if data_number
+                                        else None,
+                                        f"NumValues={value_idx}",
+                                        f"Property={property_number}"
+                                        if property_number
+                                        else None,
+                                    ]
+                                ),
+                                property_label=property_definition.get("label"),
+                                phase=property_definition.get("phase") or phase,
+                            )
+                        )
                     continue
 
                 measurement_value = _parse_float(_child_text(property_value_node, "nPropValue"))
+                if measurement_value is None:
+                    if rejections is not None:
+                        rejections.append(
+                            _rejection_row(
+                                xml_path,
+                                source,
+                                reason="missing_property_value",
+                                source_record_id=_join_nonempty(
+                                    [
+                                        f"PureOrMixtureData={data_number}"
+                                        if data_number
+                                        else None,
+                                        f"NumValues={value_idx}",
+                                        f"Property={property_number}"
+                                        if property_number
+                                        else None,
+                                    ]
+                                ),
+                                property_label=property_definition.get("label"),
+                                phase=property_definition.get("phase") or phase,
+                            )
+                        )
+                    continue
                 uncertainty = _parse_float(
                     _descendant_text(property_value_node, "nCombExpandUncertValue")
                 )
@@ -275,6 +388,21 @@ def parse_thermoml_directory(path: str | Path) -> list[dict[str, Any]]:
     return rows
 
 
+def parse_thermoml_directory_with_audit(
+    path: str | Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse all XML files and retain explicit reasons for rejected records."""
+
+    root = Path(path)
+    rows: list[dict[str, Any]] = []
+    rejections: list[dict[str, Any]] = []
+    for xml_path in sorted(root.rglob("*.xml")):
+        file_rows, file_rejections = parse_thermoml_file_with_audit(xml_path)
+        rows.extend(file_rows)
+        rejections.extend(file_rejections)
+    return rows, rejections
+
+
 def write_raw_measurements_csv(rows: Sequence[dict[str, Any]], path: str | Path) -> None:
     """Write raw measurement rows using the canonical column order."""
 
@@ -287,14 +415,66 @@ def write_raw_measurements_csv(rows: Sequence[dict[str, Any]], path: str | Path)
             writer.writerow({column: row.get(column) for column in RAW_MEASUREMENT_COLUMNS})
 
 
+def write_rejections_csv(rows: Sequence[dict[str, Any]], path: str | Path) -> None:
+    """Write rejected records and sections with stable audit columns."""
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=REJECTION_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column) for column in REJECTION_COLUMNS})
+
+
 def canonical_property_name(label: str | None) -> str | None:
     if not label:
         return None
     normalized_label = _clean_text(label).lower()
+    property_label = normalized_label.split(",", 1)[0].strip()
     for canonical, aliases in TARGET_PROPERTY_ALIASES.items():
-        if any(alias in normalized_label for alias in aliases):
+        if property_label in aliases:
+            return canonical
+    ordered_aliases = sorted(
+        (
+            (alias, canonical)
+            for canonical, aliases in TARGET_PROPERTY_ALIASES.items()
+            for alias in aliases
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    for alias, canonical in ordered_aliases:
+        if alias in normalized_label:
             return canonical
     return None
+
+
+def _rejection_row(
+    xml_path: Path,
+    source: dict[str, Any],
+    *,
+    reason: str,
+    source_record_id: str | None = None,
+    property_label: str | None = None,
+    phase: str | None = None,
+    record_count: int = 1,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_file": str(xml_path),
+        "source_DOI": source.get("source_DOI"),
+        "source_record_id": source_record_id,
+        "reason": reason,
+        "property_label": property_label,
+        "phase": phase,
+        "record_count": record_count,
+        "notes": notes,
+    }
+
+
+def _property_value_count(node: ET.Element) -> int:
+    return sum(1 for child in node.iter() if _local_name(child.tag) == "PropertyValue")
 
 
 def _candidate_measurement_nodes(root: ET.Element) -> Iterable[ET.Element]:

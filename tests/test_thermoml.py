@@ -1,10 +1,14 @@
 import unittest
+from collections import Counter, defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from immersion_ml.data.audit import duplicate_report
 from immersion_ml.data.thermoml import (
     canonical_property_name,
+    parse_thermoml_directory_with_audit,
     parse_thermoml_file,
+    parse_thermoml_file_with_audit,
     write_raw_measurements_csv,
 )
 
@@ -13,6 +17,7 @@ class ThermoMLTests(unittest.TestCase):
     def test_property_alias_mapping(self):
         self.assertEqual(canonical_property_name("Mass density"), "density")
         self.assertEqual(canonical_property_name("Dielectric constant"), "relative_permittivity")
+        self.assertEqual(canonical_property_name("Kinematic viscosity, m2/s"), "kinematic_viscosity")
         self.assertIsNone(canonical_property_name("melting temperature"))
 
     def test_parse_thermoml_style_xml_preserves_provenance(self):
@@ -75,6 +80,125 @@ class ThermoMLTests(unittest.TestCase):
         self.assertTrue(all(row["temperature_K"] is not None for row in rows))
         self.assertTrue(all(row["pressure_Pa"] is not None for row in rows))
         self.assertTrue(all(row["source_DOI"] == "10.1021/acs.jced.5b00270" for row in rows))
+
+    def test_audited_parse_excludes_gas_and_reports_rejection(self):
+        with TemporaryDirectory() as temp_dir:
+            xml_path = Path(temp_dir) / "sample.xml"
+            xml_path.write_text(
+                """<?xml version="1.0"?>
+<ThermoML>
+  <Citation><Title>Phase audit</Title><DOI>10.1234/phase</DOI></Citation>
+  <Compound id="c1"><Name>Example fluid</Name></Compound>
+  <PureOrMixtureData id="liquid">
+    <Property>Mass density</Property><Value unit="kg/m^3">789</Value>
+    <Temperature unit="K">298.15</Temperature><Phase>liquid</Phase>
+  </PureOrMixtureData>
+  <PureOrMixtureData id="gas">
+    <Property>Mass density</Property><Value unit="kg/m^3">1.2</Value>
+    <Temperature unit="K">350</Temperature><Phase>gas</Phase>
+  </PureOrMixtureData>
+</ThermoML>
+""",
+                encoding="utf-8",
+            )
+
+            rows, rejections = parse_thermoml_file_with_audit(xml_path)
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["phase"], "liquid")
+            self.assertEqual(len(rejections), 1)
+            self.assertEqual(rejections[0]["reason"], "non_liquid_or_ambiguous_phase")
+
+    def test_parse_ifd003_real_samples(self):
+        expected = {
+            "10.1016_j.tca.2005.08.012.xml": {"density": 18},
+            "10.1016_j.jct.2012.07.018.xml": {
+                "density": 121,
+                "isobaric_heat_capacity": 35,
+            },
+            "10.1016_j.fluid.2018.07.011.xml": {"thermal_conductivity": 272},
+        }
+        expected_rejections = {
+            "10.1016_j.tca.2005.08.012.xml": {
+                "mixture_or_multicomponent_section": 14
+            },
+            "10.1016_j.jct.2012.07.018.xml": {
+                "mixture_or_multicomponent_section": 6
+            },
+            "10.1016_j.fluid.2018.07.011.xml": {
+                "non_liquid_or_ambiguous_phase": 305
+            },
+        }
+
+        for filename, expected_counts in expected.items():
+            with self.subTest(filename=filename):
+                xml_path = Path("data/raw/thermoml") / filename
+                if not xml_path.exists():
+                    self.skipTest(f"Real ThermoML sample is missing: {filename}")
+                rows, rejections = parse_thermoml_file_with_audit(xml_path)
+                self.assertEqual(
+                    Counter(row["property_name"] for row in rows), expected_counts
+                )
+                self.assertTrue(all(row["phase"] == "Liquid" for row in rows))
+                self.assertTrue(all(row["source_DOI"] for row in rows))
+                self.assertEqual(
+                    Counter(row["reason"] for row in rejections),
+                    expected_rejections[filename],
+                )
+
+    def test_scaled_ifd003_corpus_coverage(self):
+        rows, rejections = parse_thermoml_directory_with_audit("data/raw/thermoml")
+
+        self.assertEqual(
+            Counter(row["property_name"] for row in rows),
+            {
+                "boiling_temperature": 32,
+                "density": 794,
+                "dynamic_viscosity": 988,
+                "isobaric_heat_capacity": 487,
+                "relative_permittivity": 255,
+                "thermal_conductivity": 1685,
+                "vapor_pressure": 396,
+            },
+        )
+        self.assertTrue(all(row["quality_flag"] is None for row in rows))
+        self.assertTrue(all(row["source_DOI"] for row in rows))
+        core_properties = {
+            "thermal_conductivity",
+            "dynamic_viscosity",
+            "density",
+            "isobaric_heat_capacity",
+        }
+        properties_by_molecule = defaultdict(set)
+        names_by_molecule = defaultdict(set)
+        for row in rows:
+            molecule_key = row["InChIKey"] or row["molecule_name"]
+            properties_by_molecule[molecule_key].add(row["property_name"])
+            names_by_molecule[molecule_key].add(row["molecule_name"])
+        complete_molecule_names = {
+            molecule_name
+            for molecule_key, properties in properties_by_molecule.items()
+            if core_properties <= properties
+            for molecule_name in names_by_molecule[molecule_key]
+        }
+        self.assertEqual(
+            complete_molecule_names,
+            {"cyclohexane", "dodecane", "ethanol", "hexane", "octane"},
+        )
+        self.assertEqual(
+            Counter(row["reason"] for row in rejections),
+            {
+                "mixture_or_multicomponent_section": 68,
+                "non_liquid_or_ambiguous_phase": 605,
+                "unsupported_property": 1080,
+            },
+        )
+        duplicates = duplicate_report(rows)
+        self.assertEqual(len(duplicates), 56)
+        self.assertEqual(
+            Counter(row["duplicate_scope"] for row in duplicates),
+            {"within_source": 56},
+        )
 
 
 if __name__ == "__main__":
