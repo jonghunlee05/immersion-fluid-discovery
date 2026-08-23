@@ -1341,9 +1341,9 @@ Current status:
 [✓] fluid-focused scope chosen
 [✓] first engineering-property review
 [✓] first data-availability audit
-[→] experimental dataset construction
-[ ] molecular identity / RDKit cleaning
-[ ] detailed EDA
+[✓] experimental dataset construction
+[✓] molecular identity / RDKit cleaning
+[→] detailed EDA
 [ ] baseline models
 [ ] GNN property predictors
 [ ] generative model
@@ -1357,7 +1357,7 @@ Current status:
 The current task is:
 
 \[
-\boxed{\text{experimental dataset construction}}
+\boxed{\text{detailed identity-aware EDA and Gate A preparation}}
 \]
 
 Do not begin GNN or generative-model development until the data audit is complete.
@@ -1367,6 +1367,8 @@ Do not begin GNN or generative-model development until the data audit is complet
 # 39. Immediate next tasks
 
 ## Task 1 — Build ThermoML ingestion
+
+**Status: completed by IFD-003.**
 
 Extract pure-liquid experimental measurements for:
 
@@ -1391,6 +1393,8 @@ Preserve:
 
 ## Task 2 — Produce coverage report
 
+**Status: completed by IFD-003 for the raw experimental corpus.**
+
 For each property calculate:
 
 - measurement count
@@ -1402,11 +1406,15 @@ For each property calculate:
 
 ## Task 3 — Produce overlap report
 
+**Status: completed by IFD-003 for source-provided molecular identities.**
+
 Measure cross-property overlap for unique molecules.
 
 This decides single-task vs multitask learning.
 
 ## Task 4 — Identity/RDKit pipeline
+
+**Status: completed by IFD-004 for the current ThermoML corpus.**
 
 After the raw audit:
 

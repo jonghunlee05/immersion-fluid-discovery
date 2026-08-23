@@ -1,1 +1,1 @@
-# Runtime dependencies are intentionally empty for the first data-construction scaffold.
+rdkit==2026.3.5
