@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
+.venv/
+*.egg-info/
 
 # Generated dataset/report outputs are reproducible from raw data and code.
 data/interim/*
