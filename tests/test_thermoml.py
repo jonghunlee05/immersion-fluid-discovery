@@ -1,5 +1,5 @@
 import unittest
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -153,22 +153,44 @@ class ThermoMLTests(unittest.TestCase):
             Counter(row["property_name"] for row in rows),
             {
                 "boiling_temperature": 32,
-                "density": 619,
-                "dynamic_viscosity": 965,
+                "density": 794,
+                "dynamic_viscosity": 988,
                 "isobaric_heat_capacity": 487,
                 "relative_permittivity": 255,
-                "thermal_conductivity": 1071,
+                "thermal_conductivity": 1685,
                 "vapor_pressure": 396,
             },
         )
         self.assertTrue(all(row["quality_flag"] is None for row in rows))
         self.assertTrue(all(row["source_DOI"] for row in rows))
+        core_properties = {
+            "thermal_conductivity",
+            "dynamic_viscosity",
+            "density",
+            "isobaric_heat_capacity",
+        }
+        properties_by_molecule = defaultdict(set)
+        names_by_molecule = defaultdict(set)
+        for row in rows:
+            molecule_key = row["InChIKey"] or row["molecule_name"]
+            properties_by_molecule[molecule_key].add(row["property_name"])
+            names_by_molecule[molecule_key].add(row["molecule_name"])
+        complete_molecule_names = {
+            molecule_name
+            for molecule_key, properties in properties_by_molecule.items()
+            if core_properties <= properties
+            for molecule_name in names_by_molecule[molecule_key]
+        }
+        self.assertEqual(
+            complete_molecule_names,
+            {"cyclohexane", "dodecane", "ethanol", "hexane", "octane"},
+        )
         self.assertEqual(
             Counter(row["reason"] for row in rejections),
             {
                 "mixture_or_multicomponent_section": 68,
-                "non_liquid_or_ambiguous_phase": 572,
-                "unsupported_property": 601,
+                "non_liquid_or_ambiguous_phase": 605,
+                "unsupported_property": 1080,
             },
         )
         duplicates = duplicate_report(rows)

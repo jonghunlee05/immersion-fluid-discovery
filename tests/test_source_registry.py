@@ -1,9 +1,17 @@
 import csv
+import hashlib
+import io
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from immersion_ml.data.download import sha256_file, verify_registered_sources
+from immersion_ml.data.download import (
+    USER_AGENT,
+    _download_verified,
+    sha256_file,
+    verify_registered_sources,
+)
 
 
 class SourceRegistryTests(unittest.TestCase):
@@ -46,6 +54,25 @@ class SourceRegistryTests(unittest.TestCase):
                 verify_registered_sources([source], raw_dir),
                 [f"missing: {source_path}"],
             )
+
+    def test_download_identifies_client_and_verifies_checksum(self):
+        payload = b"<ThermoML />"
+        source = {
+            "filename": "source.xml",
+            "source_url": "https://trc.nist.gov/ThermoML/example.xml",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        with TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / source["filename"]
+            with patch(
+                "immersion_ml.data.download.urllib.request.urlopen",
+                return_value=io.BytesIO(payload),
+            ) as urlopen:
+                _download_verified(source, destination)
+
+            request = urlopen.call_args.args[0]
+            self.assertEqual(request.get_header("User-agent"), USER_AGENT)
+            self.assertEqual(destination.read_bytes(), payload)
 
 
 if __name__ == "__main__":

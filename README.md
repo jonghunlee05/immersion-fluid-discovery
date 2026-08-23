@@ -30,12 +30,15 @@ Discover additional pure-property source candidates through the official NIST
 ThermoML API:
 
 ```bash
-PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 50
+PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 500
 ```
 
 This produces `reports/data_audit/thermoml_candidate_sources.csv`. Candidate
 sources are not admitted automatically: each XML file must pass pure-liquid,
 property, provenance, and checksum review before registry inclusion.
+
+The current IFD-003 corpus contains 4,637 accepted measurements from 30 sources.
+Five molecules have coverage for all four core properties.
 
 Build the pure-liquid interim dataset and audit reports with:
 

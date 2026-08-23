@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 
+USER_AGENT = "immersion-fluid-discovery/0.1 (ThermoML research audit)"
+
+
 def load_source_registry(path: str | Path) -> list[dict[str, str]]:
     with Path(path).open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
@@ -64,7 +67,10 @@ def _download_verified(source: dict[str, str], destination: Path) -> None:
     temporary_path = Path(temporary_name)
     try:
         with os.fdopen(file_descriptor, "wb") as output:
-            with urllib.request.urlopen(source["source_url"], timeout=60) as response:
+            request = urllib.request.Request(
+                source["source_url"], headers={"User-Agent": USER_AGENT}
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
                 while chunk := response.read(1024 * 1024):
                     output.write(chunk)
         actual_hash = sha256_file(temporary_path)

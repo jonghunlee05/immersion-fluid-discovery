@@ -36,7 +36,7 @@ experimental measurements.
 ```bash
 PYTHONPATH=src python3 -m immersion_ml.data.download
 PYTHONPATH=src python3 -m immersion_ml.data.download --download-missing
-PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 50
+PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 500
 PYTHONPATH=src python3 -m immersion_ml.data.build_dataset
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
@@ -57,7 +57,7 @@ immutable raw XML files and version-controlled code.
 ## Acceptance Criteria
 
 - All seven current ThermoML ingestion targets are parsed from real sources.
-- At least twenty-six independently registered ThermoML files contribute to the
+- At least thirty independently registered ThermoML files contribute to the
   validation corpus.
 - Raw XML files are stored unchanged and have registered SHA-256 hashes.
 - Missing registered files can be restored reproducibly without overwriting
@@ -69,7 +69,7 @@ immutable raw XML files and version-controlled code.
 - Mixture sections and non-liquid measurements are excluded with explicit audit
   reasons.
 - Coverage and overlap reports are reproducible.
-- At least one molecule has measurements for all four core properties: thermal
+- At least five molecules have measurements for all four core properties: thermal
   conductivity, dynamic viscosity, density, and isobaric heat capacity.
 - Exact-condition duplicates are reported; none are silently removed or
   averaged.
