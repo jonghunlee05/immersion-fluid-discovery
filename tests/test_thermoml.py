@@ -153,12 +153,12 @@ class ThermoMLTests(unittest.TestCase):
             Counter(row["property_name"] for row in rows),
             {
                 "boiling_temperature": 20,
-                "density": 200,
-                "dynamic_viscosity": 426,
-                "isobaric_heat_capacity": 197,
-                "relative_permittivity": 145,
-                "thermal_conductivity": 512,
-                "vapor_pressure": 74,
+                "density": 376,
+                "dynamic_viscosity": 731,
+                "isobaric_heat_capacity": 235,
+                "relative_permittivity": 201,
+                "thermal_conductivity": 965,
+                "vapor_pressure": 159,
             },
         )
         self.assertTrue(all(row["quality_flag"] is None for row in rows))
@@ -166,15 +166,16 @@ class ThermoMLTests(unittest.TestCase):
         self.assertEqual(
             Counter(row["reason"] for row in rejections),
             {
-                "mixture_or_multicomponent_section": 20,
-                "non_liquid_or_ambiguous_phase": 571,
+                "mixture_or_multicomponent_section": 31,
+                "non_liquid_or_ambiguous_phase": 572,
+                "unsupported_property": 356,
             },
         )
         duplicates = duplicate_report(rows)
-        self.assertEqual(len(duplicates), 22)
+        self.assertEqual(len(duplicates), 55)
         self.assertEqual(
             Counter(row["duplicate_scope"] for row in duplicates),
-            {"within_source": 22},
+            {"within_source": 55},
         )
 
 

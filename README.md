@@ -26,6 +26,17 @@ option. Existing raw files are never overwritten:
 PYTHONPATH=src python3 -m immersion_ml.data.download --download-missing
 ```
 
+Discover additional pure-property source candidates through the official NIST
+ThermoML API:
+
+```bash
+PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 50
+```
+
+This produces `reports/data_audit/thermoml_candidate_sources.csv`. Candidate
+sources are not admitted automatically: each XML file must pass pure-liquid,
+property, provenance, and checksum review before registry inclusion.
+
 Build the pure-liquid interim dataset and audit reports with:
 
 ```bash

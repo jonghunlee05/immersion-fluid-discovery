@@ -2,10 +2,10 @@
 
 ## Sources
 
-IFD-003 now uses eleven unmodified XML files downloaded from the official NIST
+IFD-003 now uses eighteen unmodified XML files downloaded from the official NIST
 ThermoML archive. Their URLs and SHA-256 hashes are recorded in
 `references/thermoml_source_registry.csv`. The first increment established the
-multi-property pipeline; the second increment scaled source and property
+multi-property pipeline; subsequent increments scaled source and property
 coverage on the same ticket.
 
 ## Accepted pure-liquid measurements
@@ -13,37 +13,40 @@ coverage on the same ticket.
 | Property | Measurements | Unique molecules | Temperature range (K) |
 | --- | ---: | ---: | ---: |
 | boiling temperature | 20 | 10 | Not applicable as a measurement condition |
-| density | 200 | 14 | 233.0655–363.1779 |
-| dynamic viscosity | 426 | 3 | 303.1–598.5 |
-| isobaric heat capacity | 197 | 8 | 253.5–355.09 |
-| relative permittivity | 145 | 1 | 303.7–393.0 |
-| thermal conductivity | 512 | 3 | 301.73–577.25 |
-| vapor pressure | 74 | 3 | 233.0655–363.1779 |
+| density | 376 | 22 | 233.0655–363.1779 |
+| dynamic viscosity | 731 | 8 | 278.15–598.5 |
+| isobaric heat capacity | 235 | 10 | 253.5–355.09 |
+| relative permittivity | 201 | 9 | 278.15–393.0 |
+| thermal conductivity | 965 | 20 | 245.46–577.25 |
+| vapor pressure | 159 | 6 | 233.0655–453.15 |
 
-The combined interim dataset contains 1,574 measurements. All accepted records
+The combined interim dataset contains 2,687 measurements. All accepted records
 have a liquid phase and source DOI.
 
 ## Rejections
 
-- 571 gas, supercritical, or otherwise non-liquid measurements are excluded
+- 572 gas, supercritical, or otherwise non-liquid measurements are excluded
   from the pure-liquid interim dataset.
-- 20 multicomponent ThermoML sections are excluded. Their `record_count` values
+- 31 multicomponent ThermoML sections are excluded. Their `record_count` values
   preserve how many property values each rejected section contains.
+- 356 unsupported-property records are retained in the rejection audit rather
+  than entering target-property tables.
 - Rejections retain their source file, DOI, ThermoML record reference, reason,
   property label where available, and phase where available.
 
 ## Overlap result
 
-- Density and dynamic viscosity overlap for one molecule.
+- Density and dynamic viscosity overlap for two molecules.
 - Density and isobaric heat capacity overlap for three molecules.
 - Dynamic viscosity and isobaric heat capacity overlap for one molecule.
-- Density and vapor pressure overlap for two molecules.
-- Isobaric heat capacity and vapor pressure overlap for one molecule.
+- Density and relative permittivity overlap for eight molecules.
+- Density and vapor pressure overlap for three molecules.
+- Isobaric heat capacity and vapor pressure overlap for three molecules.
 - No molecule currently has all four core properties.
 
 ## Duplicate audit
 
-The exact-condition audit flags 22 repeated groups within individual source
+The exact-condition audit flags 55 repeated groups within individual source
 files. It finds zero duplicate groups spanning different DOI sources. These rows
 remain in the raw-measurement table as required; the report provides their
 source-record identifiers for later scientific review.
@@ -62,3 +65,14 @@ as `dynamic_viscosity` through the shorter `viscosity` alias.
 ThermoML's combined `Vapor or sublimation pressure` label is accepted as vapor
 pressure only when its property phase is liquid. Solid and non-liquid records
 remain excluded by the phase audit.
+
+## Discovery and external-source audit
+
+The ThermoML API discovery command generated 320 pure-property source
+candidates from a 50-result page per configured target. Search results remain a
+review queue; they are not downloaded or accepted automatically.
+
+`references/data_source_audit.md` records the current assessment of AIST TPDS,
+EPA CompTox, NBS Circular 514, NIST Chemistry WebBook, PubChem, and OECD
+eChemPortal. None of these sources is currently mixed into the ThermoML
+experimental table without a source-specific ingestion and provenance policy.

@@ -15,6 +15,10 @@ experimental measurements.
 - Register source URLs, DOIs, publication metadata, and SHA-256 hashes.
 - Provide a safe acquisition command that downloads missing registered sources,
   never overwrites raw files, and verifies every checksum.
+- Discover pure-property candidates through the official ThermoML API and mark
+  sources already present in the registry without automatically admitting data.
+- Audit other authoritative databases and define source-specific rules before
+  combining their records with experimental ThermoML measurements.
 - Preserve the IFD-002 dynamic-viscosity source and behavior.
 - Separate accepted pure-liquid target measurements from rejected records.
 - Report mixtures, gas or ambiguous phases, unsupported properties, and missing
@@ -29,6 +33,7 @@ experimental measurements.
 ```bash
 PYTHONPATH=src python3 -m immersion_ml.data.download
 PYTHONPATH=src python3 -m immersion_ml.data.download --download-missing
+PYTHONPATH=src python3 -m immersion_ml.data.discover_thermoml --page-size 50
 PYTHONPATH=src python3 -m immersion_ml.data.build_dataset
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
@@ -49,11 +54,13 @@ immutable raw XML files and version-controlled code.
 ## Acceptance Criteria
 
 - All seven current ThermoML ingestion targets are parsed from real sources.
-- At least eleven independently registered ThermoML files contribute to the
+- At least eighteen independently registered ThermoML files contribute to the
   validation corpus.
 - Raw XML files are stored unchanged and have registered SHA-256 hashes.
 - Missing registered files can be restored reproducibly without overwriting
   existing raw data.
+- Candidate discovery produces a review queue rather than silently downloading
+  or accepting search results.
 - Accepted output contains only single-component liquid records.
 - Every accepted measurement retains a DOI and phase.
 - Mixture sections and non-liquid measurements are excluded with explicit audit
